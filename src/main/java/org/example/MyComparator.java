@@ -14,6 +14,6 @@ public class MyComparator implements Comparator {
         int len1 = arr1.length;
         int len2 = arr2.length;
 
-        return len1 - len2;
+        return len2 - len1;
     }
 }

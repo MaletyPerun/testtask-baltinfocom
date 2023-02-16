@@ -5,9 +5,14 @@ import java.nio.file.Paths;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -18,8 +23,10 @@ public class Main {
     // кол-во после фильтра и/или сортировки: 998578 (MacOS, lng-4) 13/8 сек
 
     static volatile boolean check = true;
-    static CopyOnWriteArrayList<List<String>> mainFilteredAndSortedList = new CopyOnWriteArrayList<>(); // сортировка от большего к меньшему
-
+    static ConcurrentMap<Integer, long[]> mainFilteredAndSortedMap = new ConcurrentHashMap<>();
+    static AtomicInteger numberOfLine = new AtomicInteger(1);
+    static CopyOnWriteArrayList<long[]> mainFilteredAndSortedList = new CopyOnWriteArrayList<>(); // сортировка от большего к меньшему
+    static int maxAmountElementsOfLine = 0;
     //    static List<Integer> sortedIntList = new ArrayList<>();
     static List<List<Long>> sortedLongList = new ArrayList<>();
     static Map<Integer, Set<List<String>>> resultIdSet = new HashMap<>();
@@ -47,34 +54,8 @@ public class Main {
         List<String> list1 = List.of("\"79448126993\"", "\"\"", "\"79448126993\"");
         List<String> list2 = List.of("\"79448126993\"", "\"\"", "\"79822872594\"");
 
-        // TODO: 16.02.2023
-        boolean disjoint = Collections.disjoint(list1, list2);
-        if (!disjoint) {
-            int len1 = list1.size();
-            int len2 = list2.size();
-
-            int len = Math.min(len1, len2);
-            int matches = 0;
-            for (int i = 0; i < len; i++) {
-                String str_1 = list1.get(i);
-                String str_2 = list2.get(i);
-
-                if (!("\"\"".equals(str_1)) && str_1.equals(str_2))
-                    matches++;
-            }
-            System.out.println("matches = " + matches);
-        }
-        System.out.println(disjoint);
-        System.out.println(list1);
-        System.out.println("****");
-        System.out.println(list2);
-
-
         String str4 = str3.replace("\"\"", "\"0\"");
         String str5 = str4.replace("\"", "");
-//        System.out.println(str4);
-//        System.out.println(str5);
-
 
         Runnable task = new Runnable() {
             int countTime = 0;
@@ -96,23 +77,43 @@ public class Main {
         Thread myThread = new Thread(task);
         myThread.start();
 
+
+
+
         System.out.println("start to filtered");
-//        Set<String> filteredSet = readFile(pathToFile, pattern);
         // FIXME: 15.02.2023
         readFile(pathToFile, pattern);
-        // не повторяющийся (и отсортированный от меньшего к большому по кол-ву элементов) список
-
+        // не повторяющийся (и отсортированный от большего к меньшему по кол-ву элементов) список
         System.out.println("end to filter, size = " + mainFilteredAndSortedList.size());
+
+
+
+
+
+
 
         // FIXME: 15.02.2023
 //        printOrder(mainFilteredAndSortedList, 10);
 
+
+
+
+
+
+
+
         System.out.println("start to find matches");
         // FIXME: 15.02.2023 
-        findMatches(mainFilteredAndSortedList);
+//        findMatches(mainFilteredAndSortedList);
         System.out.println("end to find matches");
 //        findMatchesOnFirstElement(mainFilteredAndSortedList);
-//        System.out.println();
+
+
+
+
+
+
+
 
 //        strParseToInt((List<String[]>) mainFilteredAndSortedList);
 
@@ -135,33 +136,22 @@ public class Main {
         System.out.println("seconds of work = " + secondsOfWork);
     }
 
-    private static void findMatches(CopyOnWriteArrayList<List<String>> list) {
+    private static void findMatches(CopyOnWriteArrayList<long[]> list) {
+        int maxLength = list.get(0).length;
+        Map<Integer, Long> thumb = new HashMap<>();
         for (int i = 0; i < list.size(); i++) {
-            List<String> line = list.get(i);
-//            System.out.println("start to find matches with line = " + list.get(i).toString());
-            if (i % 100 == 0) {
-                System.out.println(i);
+            long[] lineInArr = list.get(i);
+            int lenOfArr = lineInArr.length;
+            if (lenOfArr < maxAmountElementsOfLine) {
+                maxAmountElementsOfLine = lenOfArr;
+            } else {
+
             }
-            for (int j = 1; j < list.size() - i; j++) {
-                int matches = 0;
-                if (!(Collections.disjoint(line, list.get(j + i)))) {
-                    matches = writeTypeAndCountOfMatches(line, list.get(j + i));
-//                    System.out.println("HAVE JOINT!");
-                }
-                if (matches != 0) {
-                    Set<List<String>> set;
-                    if (resultIdSet.containsKey(matches)) {
-                        set = new HashSet<>(resultIdSet.get(matches));
-                        System.out.println("update set with matches = " + matches);
-                    } else {
-                        set = new HashSet<>();
-                        System.out.println("new set with matches = " + matches);
-                    }
-                    set.add(list.get(j));
-                    set.add(list.get(j + i));
-                    resultIdSet.put(matches, set);
-                }
-            }
+
+//            Map<String, String> map =
+//                    getMapStream().collect(Collectors.toMap(x -> x.getName(),
+//                            x -> x.getCode(),
+//                            (oldValue, newValue) -> newValue));
         }
     }
 
@@ -218,33 +208,40 @@ public class Main {
 
     // TODO: 15.02.2023 методы
 
-    public static void readFile(String pathToFile, Pattern pattern) {
-        List<List<String>> list = null;
+    public static int readFile(String pathToFile, Pattern pattern) {
+        List<long[]> list = null;
+        Map<Integer, long[]> map = null;
         try (Stream<String> lines = Files.lines(Paths.get(pathToFile))) {
-            list = lines.filter(s -> {
+            map = lines.filter(s -> {
                         Matcher matcher = pattern.matcher(s);
                         return matcher.matches();
                     })
                     .filter(s -> (s.length() != 0))
                     .distinct()
                     .sorted((s1, s2) -> new MyComparator().compare(s1, s2))
-//                    .map(s -> s.replace("\"\"", "\"0\""))
-//                    .map(s -> s.replace("\"", ""))
+                    .map(s -> s.replace("\"\"", "0"))
+                    .map(s -> s.replace("\"", ""))
                     .map(s -> Arrays.stream(s.split(";"))
-//                            .filter(s1 -> !("".equals(s1)))
-                            .toList())
-                    .toList();
-//                            .mapToLong(Long::parseLong)
-//                            .toArray())
+                            .mapToLong(Long::parseLong)
+                            .toArray())
+                    .collect(Collectors.toMap(i -> numberOfLine.getAndIncrement(), s -> s));
+//                    .toList();
         } catch (Exception e) {
             System.out.println(e.getMessage());
         }
-//        return new CopyOnWriteArrayList<String>(mainFilteredAndSortedList);
         try {
-            mainFilteredAndSortedList.addAll(list);
+            mainFilteredAndSortedMap.putAll(map);
+            System.out.println("size of map = " + mainFilteredAndSortedMap.size());
+//            mainFilteredAndSortedList.addAll(list);
+//            System.out.println(mainFilteredAndSortedList.size());
         } catch (Exception e) {
             System.out.println(e.getMessage());
         }
+
+//        System.out.println("max len = " + mainFilteredAndSortedList.get(0).length);
+//        System.out.println("line #1: " + Arrays.toString(mainFilteredAndSortedList.get(0)));
+        System.out.println("line #1: " + Arrays.toString(mainFilteredAndSortedMap.get(1)));
+        return 0;
     }
 
 
