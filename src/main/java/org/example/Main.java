@@ -9,11 +9,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.LongPredicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 
@@ -26,17 +25,20 @@ public class Main {
     static ConcurrentMap<Integer, long[]> mainFilteredAndSortedMap = new ConcurrentHashMap<>();
     static AtomicInteger numberOfLine = new AtomicInteger(0);
     static CopyOnWriteArrayList<long[]> mainFilteredAndSortedList = new CopyOnWriteArrayList<>(); // сортировка от большего к меньшему
+    static Set<long[]> copySetOfMainWithOneMatch = new HashSet<>();
+    static List<long[]> copyListOfMainWithoutOneMatch = new ArrayList<>();
     static LinkedList<long[]> mainFilteredAndSortedLinkedList = new LinkedList<>();
     static int maxAmountElementsOfLine = 0;
     static List<Integer> idToRemove = new ArrayList<>();
     //    static List<Integer> sortedIntList = new ArrayList<>();
     static List<List<Long>> sortedLongList = new ArrayList<>();
-    static Map<Integer, Set<List<String>>> resultIdSet = new HashMap<>();
+    static Map<Integer, Set<long[]>> resultIdSet = new HashMap<>();
 
     public static void main(String[] args) {
-        final String pathToFile = "/Users/teplo/Desktop/lng-4.txt";
+//        final String pathToFile = "/Users/teplo/Desktop/lng-4.txt";
 //        final String pathToFile = "/Users/teplo/Desktop/lng-4 2.txt";
-//        final String pathToFile = "C://Users/Алексей/Desktop/lng.txt";
+        final String pathToFile = "C://Users/Алексей/Desktop/lng.txt";
+//        final String pathToFile = "C://Users/Алексей/Desktop/lng-2.txt";
         final String regex = "^(\"\\d*\")(;\"\\d*\")*$";
         final Pattern pattern = Pattern.compile(regex);
 
@@ -93,10 +95,11 @@ public class Main {
 
 
         System.out.println("start to find matches");
-        // FIXME: 15.02.2023 
+        // FIXME: 15.02.2023
 //        findMatches(mainFilteredAndSortedList);
 //        findMatchesOnMap(mainFilteredAndSortedMap);
-        findMatchesOnStream();
+        findMatches();
+
         System.out.println("end to find matches");
 //        findMatchesOnFirstElement(mainFilteredAndSortedList);
 
@@ -122,189 +125,8 @@ public class Main {
         System.out.println("seconds of work = " + secondsOfWork);
     }
 
-    private static void findMatchesOnStream() {
-        long[] thumb = mainFilteredAndSortedList.stream()
-                .filter(longs -> longs.length >= maxAmountElementsOfLine)
-                .flatMapToLong(Arrays::stream)
-//                .map(String::valueOf)
-//                .mapToLong(Long::valueOf)
-//                .toArray();
-                .toArray();
-
-        Set<Long> clear = new HashSet<>();
-        Set<Long> toRemove = new HashSet<>();
-        Set<Integer> idToRemove = new HashSet<>();
-        for (int i = 0; i < thumb.length; i++) {
-            if (!clear.add(thumb[i])) {
-                toRemove.add(thumb[i]);
-                idToRemove.add(i);
-            }
-        }
-
-//        Collections.
-
-        System.out.println("size of test heap-to-remove = " + thumb.length);
-        System.out.println("size of clear-set = " + clear.size());
-        System.out.println("size of to-remove-set = " + toRemove.size());
-        System.out.println("size of id-to-remove-set = " + idToRemove.size());
-
-        System.out.println("*****");
-        System.out.println("main list size before clean = " + mainFilteredAndSortedList.size());
-        for (int i = idToRemove.size() - 1; i >= 0; i--) {
-            mainFilteredAndSortedList.remove(i);
-        }
-        System.out.println("main list size after clean = " + mainFilteredAndSortedList.size());
-        System.out.println("*****");
-//        if (!idToRemove.isEmpty()) {
-//            mainFilteredAndSortedList.subList(0, idToRemove.size()).clear();
-//        }
-
-
-    }
-
-//    private static void findMatches(CopyOnWriteArrayList<long[]> list) {
-//        int maxLength = list.get(0).length;
-//        Map<Integer, Long> thumb = new HashMap<>();
-//        for (int i = 0; i < list.size(); i++) {
-//            long[] lineInArr = list.get(i);
-//            int lenOfArr = lineInArr.length;
-//            if (lenOfArr < maxAmountElementsOfLine) {
-//                maxAmountElementsOfLine = lenOfArr;
-//            } else {
-//
-//            }
-//
-////            Map<String, String> map =
-////                    getMapStream().collect(Collectors.toMap(x -> x.getName(),
-////                            x -> x.getCode(),
-////                            (oldValue, newValue) -> newValue));
-//        }
-//    }
-
-    private static void findMatchesOnMap(ConcurrentMap<Integer, long[]> map) {
-        Map<Integer, long[]> heap = Map.copyOf(mainFilteredAndSortedMap);
-        System.out.println("main map #1: " + Arrays.toString(mainFilteredAndSortedMap.get(0)));
-        System.out.println("heap     #1:" + Arrays.toString(heap.get(0)));
-        maxAmountElementsOfLine = map.get(0).length;
-//        Map<Integer, Long> thumb = new HashMap<>();
-//        for (int i = 0; i < map.size(); i++) {
-//            long[] lineInArr = map.get(i);
-//            int lenOfArr = lineInArr.length;
-//            if (lenOfArr < maxAmountElementsOfLine) {
-//                maxAmountElementsOfLine = lenOfArr;
-//                // do clear mainMap
-//            } else {
-//                thumb.put(i, map.get(i)[maxAmountElementsOfLine - 1]);
-//            }
-//
-////            Map<String, String> map =
-////                    getMapStream().collect(Collectors.toMap(x -> x.getName(),
-////                            x -> x.getCode(),
-////                            (oldValue, newValue) -> newValue));
-//        }
-        for (int i = 0; i < map.size(); i++) {
-            long[] longs = map.get(i);
-            int len = longs.length;
-            long l = longs[len - 1];
-            if (l != 0 && len != maxAmountElementsOfLine) {
-                removeIdFromHeap(heap);
-                break;
-            }
-            for (int j = 1; j < map.size() - i; j++) {
-                long[] longs2 = map.get(j);
-                int len2 = longs2.length;
-                if (len != len2) {
-                    break;
-                }
-                long l2 = longs2[len2 - 1];
-                if (l == l2) {
-                    idToRemove.add(j);
-                    System.out.println("id " + j + " to remove!");
-                }
-            }
-            if (!idToRemove.isEmpty()) {
-                idToRemove.add(i);
-            }
-        }
-    }
-
-    private static void removeIdFromHeap(Map<Integer, long[]> heap) {
-        if (idToRemove.isEmpty()) {
-            return;
-        }
-        for (int id : idToRemove) {
-            heap.remove(id);
-        }
-        System.out.println("size before clear = " + mainFilteredAndSortedMap.size());
-        mainFilteredAndSortedMap.clear();
-        mainFilteredAndSortedMap.putAll(heap);
-        System.out.println("size after clear = " + mainFilteredAndSortedMap.size());
-
-    }
-
-    private static void findMatchesSimple(CopyOnWriteArrayList<long[]> list) {
-        list.stream().forEach(s -> findMatches(s));
-    }
-
-    private static void findMatches(long[] l) {
-        int len = l.length;
-
-    }
-
-    private static int writeTypeAndCountOfMatches(List<String> line1, List<String> line2) {
-        int len = Math.min(line1.size(), line2.size());
-        int matches = 0;
-        for (int i = 0; i < len; i++) {
-            if (!("\"\"".equals(line1.get(i))) && line1.get(i).equals(line2.get(i)))
-                matches++;
-        }
-        return matches;
-    }
-
-//    private static void findMatchesOnFirstElement(CopyOnWriteArrayList<String[]> mainFilteredAndSortedList) {
-////        for (int i = 0; i < mainFilteredAndSortedList.size(); i++) {
-//        String[] firstLine = mainFilteredAndSortedList.get(2);
-//        String firstElementOfFirstLineStr = firstLine[0];
-//        long firstElementOfFirstLineLong = Long.parseLong(firstElementOfFirstLineStr);
-//        int countOfMatches = 0;
-//        int typeOfMatches = 1;
-//        for (int j = 2; j < mainFilteredAndSortedList.size() - 2; j++) {
-//            long x = 0;
-//            if (mainFilteredAndSortedList.get(j).length == 0) {
-//                continue;
-//            }
-//            try {
-//                x = Long.parseLong(mainFilteredAndSortedList.get(j)[0]);
-//            } catch (Exception e) {
-////                System.out.println("mainFilteredAndSortedList.get(" + j + ")[0] = " + mainFilteredAndSortedList.get(j)[0]);
-//                continue;
-//            }
-//            if (firstElementOfFirstLineLong == Long.parseLong(mainFilteredAndSortedList.get(j)[0])) {
-//                Set<String[]> set;
-//                if (resultIdSet.containsKey(typeOfMatches)) {
-//                    set = new HashSet<>(resultIdSet.get(typeOfMatches));
-//                } else {
-//                    set = new HashSet<>();
-//                }
-//                set.add(mainFilteredAndSortedList.get(0));
-//                set.add(mainFilteredAndSortedList.get(j));
-//                resultIdSet.put(typeOfMatches, set);
-//                countOfMatches++;
-//            }
-//        }
-//        if (countOfMatches == 0) {
-//            mainFilteredAndSortedList.remove(0);
-//        } else {
-//
-//            countOfMatches = 0;
-//        }
-//        System.out.println("matches = " + countOfMatches);
-//        System.out.println(resultIdSet.size());
-//    }
-
     // TODO: 15.02.2023 методы
-
-    public static int readFile(String pathToFile, Pattern pattern) {
+    public static void readFile(String pathToFile, Pattern pattern) {
         List<long[]> list = null;
         Map<Integer, long[]> map = null;
         try (Stream<String> lines = Files.lines(Paths.get(pathToFile))) {
@@ -314,7 +136,7 @@ public class Main {
                     })
                     .filter(s -> (s.length() != 0))
                     .distinct()
-                    .sorted((s1, s2) -> new MyComparator().compare(s1, s2))
+//                    .sorted((s1, s2) -> new MyComparator().compare(s1, s2))
                     .map(s -> s.replace("\"\"", "0"))
                     .map(s -> s.replace("\"", ""))
                     .map(s -> Arrays.stream(s.split(";"))
@@ -339,103 +161,69 @@ public class Main {
         System.out.println("max len = " + mainFilteredAndSortedList.get(0).length);
         System.out.println("line #1: " + Arrays.toString(mainFilteredAndSortedList.get(0)));
 //        System.out.println("line #1: " + Arrays.toString(mainFilteredAndSortedMap.get(0)));
-        return 0;
+//        return 0;
     }
 
-
-//    public static void findMatchesOnStr(List<String> list) {
-//        System.out.println("size of list = " + list.size());
-//        for (int j = 0; j < list.size(); j++) {
-//            System.out.println("get main str with id =" + j);
-//            for (int i = 1; i < list.size() - j; i++) {
-//                System.out.println("get compare str with id =" + i);
-//                int matches = doEquals(list.get(j), list.get(j + i));
-//                if (matches != 0) {
-//                    Set<String> set;
-//                    if (resultIdSet.containsKey(matches)) {
-//                        set = new HashSet<>(resultIdSet.get(matches));
-//                    } else {
-//                        set = new HashSet<>();
-//                    }
-//                    set.add(list.get(j));
-//                    set.add(list.get(j + i));
-//                    resultIdSet.put(matches, set);
-//                }
-//            }
-//        }
-//    }
-
-//    public static void findMatchesOnLong(List<List<Long>> list, int limit) {
-//        List<List<Long>> shortList = list.stream()
-//                .limit(limit)
-//                .toList();
-//        findMatchesOnLong(shortList);
-//    }
-
-//    public static void findMatchesOnLong(List<List<Long>> list) {
-//        for (int i = 0; i < list.size(); i++) {
-//            List<Long> lList1 = list.get(i);
-//            for (int j = 1; j < list.size() - i; j++) {
-//
-//            }
-//            List<Long> lList2 = list.get(i + 1);
-//            int len = Math.min(lList1.size(), lList2.size());
-//            int matches = 0;
-//            for (int j = 0; j < len; j++) {
-//                Long l1 = lList1.get(j);
-//                Long l2 = lList2.get(j);
-//                if (l1.equals(l2)) {
-//                    matches++;
-//                }
-//            }
-//            if (matches != 0) {
-//                Set<String> set;
-//                if (resultIdSet.containsKey(matches)) {
-//                    set = new HashSet<>(resultIdSet.get(matches));
-//                } else {
-//                    set = new HashSet<>();
-//                }
-////                set.add(list.get(j));
-////                set.add(list.get(j + i));
-//                resultIdSet.put(matches, set);
-//            }
-//        }
-//        System.out.println("size of list = " + list.size());
-//        for (int j = 0; j < list.size(); j++) {
-//            System.out.println("get main str with id =" + j);
-//            for (int i = 1; i < list.size() - j; i++) {
-//                System.out.println("get compare str with id =" + i);
-//                int matches = doEquals(list.get(j), list.get(j + i));
-//                if (matches != 0) {
-//                    Set<String> set;
-//                    if (resultIdSet.containsKey(matches)) {
-//                        set = new HashSet<>(resultIdSet.get(matches));
-//                    } else {
-//                        set = new HashSet<>();
-//                    }
-//                    set.add(list.get(j));
-//                    set.add(list.get(j + i));
-//                    resultIdSet.put(matches, set);
-//                }
-//            }
-//        }
-//    }
-
-    public static int doEquals(String str1, String str2) {
-        String[] arr1 = str1.split(";");
-        String[] arr2 = str2.split(";");
-        int length = Math.min(arr1.length, arr2.length);
-        return (int) IntStream.range(0, length)
-                .filter(i -> !("".equals(arr1[i])) && (arr1[i].equals(arr2[i])))
-                .count();
+    private static void findMatches() {
+        findOneMatchOnStream();
+        findAnotherMatchesOnStream();
     }
 
-//    public static int doEquals(List<Long> lList1, List<Long> lList2) {
-//        int length = Math.min(arr1.length, arr2.length);
-//        return (int) IntStream.range(0, length)
-//                .filter(i -> !("".equals(arr1[i])) && (arr1[i].equals(arr2[i])))
-//                .count();
-//    }
+    private static void findOneMatchOnStream() {
+
+        int size = 1;
+        while (maxAmountElementsOfLine >= size) {
+            int finalSize = size;
+            long[] thumb = mainFilteredAndSortedList.stream()
+                    .filter(longs -> longs.length >= finalSize)
+                    .flatMapToLong(s -> LongStream.of(Arrays.stream(s)
+                            .skip(finalSize - 1)
+                            .findFirst()
+                            .orElse(0)))
+                    .toArray();
+
+            Set<Long> clear = new HashSet<>();
+            Set<Long> copies = new HashSet<>();
+            Set<Integer> copiesId = new HashSet<>();
+            Set<Integer> copiesIdTo1 = new HashSet<>();
+            for (int i = 0; i < thumb.length; i++) {
+                if (!clear.add(thumb[i])) {
+                    copies.add(thumb[i]);
+                    copiesId.add(i);
+                }
+            }
+
+            Set<long[]> set = mainFilteredAndSortedList.stream()
+                    .filter(s -> Arrays.stream(s)
+                            .skip(finalSize - 1)
+                            .filter(l -> copies.contains(l))
+                            .findFirst().isPresent())
+                    .collect(Collectors.toSet());
+
+            copySetOfMainWithOneMatch.addAll(set);
+
+            System.out.println("size:" + finalSize + " of test heap-to-remove = " + thumb.length);
+            System.out.println("size:" + finalSize + " of clear-set = " + clear.size());
+            System.out.println("size:" + finalSize + " of copies-set = " + copies.size());
+            System.out.println("size:" + finalSize + " of copies-id-set = " + copiesId.size());
+            System.out.println("size:" + finalSize + " of copy-set = " + copySetOfMainWithOneMatch.size());
+            System.out.println("*****");
+
+            size++;
+        }
+
+//        Set<long[]> overCopies = Set.copyOf(copySetOfMainWithOneMatch);
+
+        System.out.println("mainFilteredAndSortedList size = " + mainFilteredAndSortedList.size());
+        // FIXME: 17.02.2023 убрать использование List, так как после первой полной проверки длина = 2,5 ляма!
+        System.out.println("copyListOfMainWithOneMatch size = " + copySetOfMainWithOneMatch.size());
+//        System.out.println("overCopies size = " + overCopies.size());
+
+        resultIdSet.put(1, copySetOfMainWithOneMatch);
+    }
+
+    private static void findAnotherMatchesOnStream() {
+    }
 
     public static void print() {
 //        List<Integer> keys = new ArrayList<>(resultIdSet.keySet());
@@ -450,89 +238,5 @@ public class Main {
         for (int x : resultIdSet.keySet()) {
             System.out.println(x);
         }
-    }
-
-//    public static void strParseToInt(List<String[]> strList) {
-//        sortedLongList = strList.stream()
-//                .map(s -> s.replaceAll("\"", ""))
-//                .map(s -> {
-//                    return Arrays.stream(s.split(";"))
-////                            .map(s1 -> s1.replace("\"", ""))
-//                            .map(l -> {
-//                                if ("".equals(l)) {
-//                                    return 0l;
-//                                } else {
-//                                    return Long.parseLong(l);
-//                                }
-//                            })
-//                            .toList();
-//                })
-//                .collect(Collectors.toList());
-//
-//        // FIXME: 15.02.2023 тестовая
-////        String str = strList.get(0);
-////        String[] arrStr = str.split(";");
-////        for (String x : arrStr) {
-////            x = x.replaceAll("\"", "");
-////            long m = 0;
-////            if (!(x.equals(""))) {
-////                m = Long.parseLong(x);
-////            }
-////            System.out.println(m);
-////        }
-//
-//
-////        System.out.println(str);
-////        List<Integer> listOfInt = Arrays.stream(str.split(";"))
-////                .map(s -> s.replaceAll("\"", ""))
-////                .map(Integer::parseInt)
-////                .toList();
-////        printOrderInt(listOfInt, 10);
-//
-////        List<Integer> listOfInteger = convert
-//    }
-
-    //    public static void printOrder(CopyOnWriteArrayList<String[]> conList, int limit) {
-    public static void printOrder(List<long[]> conList, int limit) {
-        System.out.println("***ORDER LIST STR***");
-//        conList.stream()
-//                .limit(limit)
-//                .forEach(s -> Arrays.stream(s).forEach(System.out::println));
-        for (int i = 0; i < limit; i++) {
-            try {
-                Arrays.stream(conList.get(i)).forEach(s -> System.out.print(s + " "));
-            } catch (Exception e) {
-                System.out.println("i = " + i);
-                System.out.println(conList.size());
-                System.out.println(conList.get(i));
-            }
-            System.out.println();
-        }
-        System.out.println("***END ORDER***");
-    }
-
-    public static void printOrder(Set<String> set, int limit) {
-        System.out.println("***ORDER SET STR***");
-        set.stream()
-                .limit(limit)
-                .forEach(System.out::println);
-        System.out.println("***END ORDER***");
-    }
-
-//    public static void printOrderInt(List<Integer> set, int limit) {
-//    public static void printOrderInt(List<List<Integer>> list, int limit) {
-//        System.out.println("***ORDER LIST INT***");
-//        list.stream()
-//                .limit(limit)
-//                .forEach(System.out::println);
-//        System.out.println("***END ORDER***");
-//    }
-
-    public static void printOrderInt(List<List<Long>> list, int limit) {
-        System.out.println("***ORDER LIST LONG***");
-        list.stream()
-                .limit(limit)
-                .forEach(System.out::println);
-        System.out.println("***END ORDER***");
     }
 }
