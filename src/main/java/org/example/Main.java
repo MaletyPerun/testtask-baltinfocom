@@ -7,7 +7,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -24,12 +23,13 @@ public class Main {
     static volatile boolean check = true;
     static ConcurrentMap<Integer, long[]> mainFilteredAndSortedMap = new ConcurrentHashMap<>();
     static AtomicInteger numberOfLine = new AtomicInteger(0);
-    static CopyOnWriteArrayList<long[]> mainFilteredAndSortedList = new CopyOnWriteArrayList<>(); // сортировка от большего к меньшему
+    static Set<long[]> mainFilteredAndSortedSet = new LinkedHashSet<>(); // сортировка от большего к меньшему
     static Set<long[]> copySetOfMainWithOneMatch = new LinkedHashSet<>();
     static List<long[]> copyListOfMainWithoutOneMatch = new ArrayList<>();
     static LinkedList<long[]> mainFilteredAndSortedLinkedList = new LinkedList<>();
-    static Set<Set<long[]>> listOfThumbs = new LinkedHashSet<>();
+    //    static Set<Set<long[]>> setOfColums = new LinkedHashSet<>();
     static int maxAmountElementsOfLine = 0;
+    static Map<Integer, Set<long[]>> mapOfDuplicateWithCount = new HashMap<>();
     static List<Integer> idToRemove = new ArrayList<>();
     //    static List<Integer> sortedIntList = new ArrayList<>();
     static List<List<Long>> sortedLongList = new ArrayList<>();
@@ -88,18 +88,15 @@ public class Main {
         // TODO: 17.02.2023 проверить лист и связанный лист
         readFile(pathToFile, pattern);
         // не повторяющийся (и отсортированный от большего к меньшему по кол-ву элементов) список
-        System.out.println("end to filter, size = " + mainFilteredAndSortedList.size());
-
-
+//        System.out.println("end to filter, size = " + mainFilteredAndSortedSet.size());
         // FIXME: 15.02.2023
 //        printOrder(mainFilteredAndSortedList, 10);
-
-
         System.out.println("start to find matches");
         // FIXME: 15.02.2023
 //        findMatches(mainFilteredAndSortedList);
 //        findMatchesOnMap(mainFilteredAndSortedMap);
-        findMatches();
+        findMatches(mainFilteredAndSortedSet, 1);
+        print();
 
         System.out.println("end to find matches");
 //        findMatchesOnFirstElement(mainFilteredAndSortedList);
@@ -136,7 +133,6 @@ public class Main {
                     })
                     .filter(s -> (s.length() != 0))
                     .distinct()
-                    // TODO: 19.02.2023 разобраться с сортировкой: нужна ли? и проверить на тесте
                     .sorted((s1, s2) -> new MyComparator().compare(s1, s2))
                     .map(s -> s.replace("\"\"", "0"))
                     .map(s -> s.replace("\"", ""))
@@ -145,39 +141,51 @@ public class Main {
                             .toArray())
 //                    .collect(Collectors.toMap(i -> numberOfLine.getAndIncrement(), s -> s));
                     .toList();
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-        }
-        try {
-//            mainFilteredAndSortedMap.putAll(map);
-//            System.out.println("size of map = " + mainFilteredAndSortedMap.size());
-            mainFilteredAndSortedList.addAll(list);
+            System.out.println(list.size());
         } catch (Exception e) {
             System.out.println(e.getMessage());
         }
 
-        maxAmountElementsOfLine = mainFilteredAndSortedList.get(0).length;
-        System.out.println("maxAmountElementsOfLine = " + maxAmountElementsOfLine);
-        System.out.println("mainFilteredAndSortedList size of readFile = " + mainFilteredAndSortedList.size());
-        System.out.println("line #1 of mainFilteredAndSortedList of readFile = " + Arrays.toString(mainFilteredAndSortedList.get(0)));
+        // TODO: 20.02.2023 валидация
+//        if (list.isEmpty()) {
+//
+//        }
+        try {
+//            mainFilteredAndSortedMap.putAll(map);
+//            System.out.println("size of map = " + mainFilteredAndSortedMap.size());
+            mainFilteredAndSortedSet.addAll(list);
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+
+//        maxAmountElementsOfLine = mainFilteredAndSortedList.get(0).length;
+//        System.out.println("maxAmountElementsOfLine = " + maxAmountElementsOfLine);
+//        System.out.println("mainFilteredAndSortedList size of readFile = " + mainFilteredAndSortedList.size());
+//        System.out.println("line #1 of mainFilteredAndSortedList of readFile = " + Arrays.toString(mainFilteredAndSortedList.get(0)));
 
 //        System.out.println("line #1: " + Arrays.toString(mainFilteredAndSortedMap.get(0)));
 //        return 0;
     }
 
-    private static void findMatches() {
-        Set<long[]> set = findOneMatchOnStream();
-        findAnotherMatchesOnStream(set);
+    private static void findMatches(Set<long[]> copiesOfLines, int countOfDuplicate) {
+        Set<Set<long[]>> columns = new LinkedHashSet<>(takeColumns(copiesOfLines));
+        Set<long[]> set = findOneMatchOnStream(columns, countOfDuplicate);
+        if (!set.isEmpty()) {
+            countOfDuplicate++;
+            findMatches(set, countOfDuplicate);
+        }
+//        findAnotherMatchesOnStream(mainFilteredAndSortedList);
+//        findAnotherMatchesOnStream(set);
     }
 
-    private static Set<long[]> findOneMatchOnStream() {
-
+    private static Set<Set<long[]>> takeColumns(Set<long[]> copiesOfLines) {
         int size = 1;
+        Set<Set<long[]>> setOfColumns = new LinkedHashSet<>();
         while (maxAmountElementsOfLine >= size) {
 
             // взять столбец long и сделать массив
             int finalSize = size;
-            long[] thumb = mainFilteredAndSortedList.stream()
+            long[] thumb = copiesOfLines.stream()
 //                    .filter(longs -> longs.length >= finalSize)
                     .flatMapToLong(s -> LongStream.of(Arrays.stream(s)
                             .skip(finalSize - 1)
@@ -201,7 +209,7 @@ public class Main {
             // получил set повторяющихся значений в столбце
 
             // найти из предоставленной карты строки с повторяющимися значениями в i-столбце
-            Set<long[]> set = mainFilteredAndSortedList.stream()
+            Set<long[]> set = mainFilteredAndSortedSet.stream()
                     .filter(s -> Arrays.stream(s)
                             .skip(finalSize - 1)
                             .limit(1)
@@ -211,9 +219,9 @@ public class Main {
 //                            .findFirst().isPresent())
                     .collect(Collectors.toSet());
 
-            copySetOfMainWithOneMatch.addAll(set);
+//            copySetOfMainWithOneMatch.addAll(set);
             // TODO: 19.02.2023 добавить set, а не массив
-            listOfThumbs.add(set);
+            setOfColumns.add(set);
 //            Collections.addAll(listOfThumbs, copies);
             // получил set строк с повторяющимися значениями в i-столбце
 
@@ -235,17 +243,121 @@ public class Main {
 //        System.out.println(copySetOfMainWithOneMatch.size() + " : copySetOfMainWithOneMatch, size, before clean, findOneMatchOnStream");
 //        System.out.println(listOfThumbs.size() + "listOfThumbs");
 
-        resultCountRepeatSet.put(1, new HashSet<>(copySetOfMainWithOneMatch));
-        mainFilteredAndSortedList.retainAll(copySetOfMainWithOneMatch);
+//        resultCountRepeatSet.put(1, new HashSet<>(copySetOfMainWithOneMatch));
+//        mainFilteredAndSortedList.retainAll(copySetOfMainWithOneMatch);
 //        copySetOfMainWithOneMatch.clear();
 
 
-        System.out.println(resultCountRepeatSet.get(1).size() + " : resultCountRepeatSet, 1 repeat, size, after clean");
-        System.out.println(mainFilteredAndSortedList.size() + " : mainFilteredAndSortedList, size, after clean, findOneMatchOnStream");
-        System.out.println(Arrays.toString(mainFilteredAndSortedList.get(0)) + " : line #1, mainFilteredAndSortedList, size, after clean, findOneMatchOnStream");
-        System.out.println(copySetOfMainWithOneMatch.size() + " : copySetOfMainWithOneMatch, size, after clean, findOneMatchOnStream");
+//        System.out.println(resultCountRepeatSet.get(1).size() + " : resultCountRepeatSet, 1 repeat, size, after clean");
+//        System.out.println(mainFilteredAndSortedList.size() + " : mainFilteredAndSortedList, size, after clean, findOneMatchOnStream");
+//        System.out.println(Arrays.toString(mainFilteredAndSortedList.get(0)) + " : line #1, mainFilteredAndSortedList, size, after clean, findOneMatchOnStream");
+//        System.out.println(copySetOfMainWithOneMatch.size() + " : copySetOfMainWithOneMatch, size, after clean, findOneMatchOnStream");
 
-        return copySetOfMainWithOneMatch;
+        return setOfColumns;
+//        return null;
+    }
+
+    private static Set<long[]> findOneMatchOnStream(Set<Set<long[]>> columns, int countOfDuplicate) {
+        Set<long[]> nextSetLevel = new LinkedHashSet<>();
+        Set<long[]> duplicate = new LinkedHashSet<>();
+        for (Set<long[]> overLongs : columns) {
+            for (Set<long[]> longs : columns) {
+                Set<long[]> set = new HashSet<>(overLongs);
+                set.retainAll(longs);
+                if (!set.isEmpty()) {
+                    continue;
+                }
+                if (!set.containsAll(longs)) {
+                    nextSetLevel.addAll(set);
+                } else {
+                    duplicate.addAll(longs);
+                }
+            }
+        }
+        mapOfDuplicateWithCount.put(countOfDuplicate, duplicate);
+//        findMatches(nextSetLevel, countOfDuplicate);
+        return nextSetLevel;
+
+
+
+
+
+//        int size = 1;
+//        while (maxAmountElementsOfLine >= size) {
+//
+//            // взять столбец long и сделать массив
+//            int finalSize = size;
+////            long[] thumb = copiesOfLines.stream()
+//////                    .filter(longs -> longs.length >= finalSize)
+////                    .flatMapToLong(s -> LongStream.of(Arrays.stream(s)
+////                            .skip(finalSize - 1)
+//////                            .filter(l -> l != 0)
+////                            .findFirst()
+////                            .orElse(0)))
+////                    .toArray();
+////            // получил отдельный i-столбец
+////
+////            // найти совпадающие значения в столбце
+////            Set<Long> clear = new HashSet<>();
+////            Set<Long> copies = new HashSet<>();
+//////            Set<Integer> copiesId = new HashSet<>();
+//////            Set<Integer> copiesIdTo1 = new HashSet<>();
+////            for (int i = 0; i < thumb.length; i++) {
+////                if (thumb[i] != 0 && !clear.add(thumb[i])) {
+////                    copies.add(thumb[i]);
+//////                    copiesId.add(i);
+////                }
+////            }
+//            // получил set повторяющихся значений в столбце
+//
+//            // найти из предоставленной карты строки с повторяющимися значениями в i-столбце
+////            Set<long[]> set = copiesOfLines.stream()
+////                    .filter(s -> Arrays.stream(s)
+////                            .skip(finalSize - 1)
+////                            .limit(1)
+//////                            .findFirst()
+////                            .anyMatch(columns::contains))
+//////                            .filter(l -> copies.contains(l))
+//////                            .findFirst().isPresent())
+////                    .collect(Collectors.toSet());
+////
+////            copySetOfMainWithOneMatch.addAll(set);
+////
+////
+////            // TODO: 19.02.2023 добавить set, а не массив
+////            setOfColums.add(set);
+////            Collections.addAll(listOfThumbs, copies);
+//            // получил set строк с повторяющимися значениями в i-столбце
+//
+////            System.out.println("size:" + finalSize + " of test heap-to-remove = " + thumb.length);
+////            System.out.println("size:" + finalSize + " of clear-set = " + clear.size());
+////            System.out.println("size:" + finalSize + " of copies-set = " + copies.size());
+////            System.out.println("size:" + finalSize + " of copies-id-set = " + copiesId.size());
+////            System.out.println("size:" + finalSize + " of copy-set = " + copySetOfMainWithOneMatch.size());
+////            System.out.println("*****");
+//
+//            size++;
+//        }
+
+//        searchNestCopies(listOfThumbs);
+
+
+//        System.out.println(mainFilteredAndSortedList.size() + " : mainFilteredAndSortedList, size, before clean, findOneMatchOnStream");
+//        System.out.println(Arrays.toString(mainFilteredAndSortedList.get(0)) + " : line #1, mainFilteredAndSortedList, size, before clean, findOneMatchOnStream");
+//        System.out.println(copySetOfMainWithOneMatch.size() + " : copySetOfMainWithOneMatch, size, before clean, findOneMatchOnStream");
+//        System.out.println(listOfThumbs.size() + "listOfThumbs");
+
+//        resultCountRepeatSet.put(1, new HashSet<>(copySetOfMainWithOneMatch));
+//        mainFilteredAndSortedList.retainAll(copySetOfMainWithOneMatch);
+//        copySetOfMainWithOneMatch.clear();
+
+
+//        System.out.println(resultCountRepeatSet.get(1).size() + " : resultCountRepeatSet, 1 repeat, size, after clean");
+//        System.out.println(mainFilteredAndSortedList.size() + " : mainFilteredAndSortedList, size, after clean, findOneMatchOnStream");
+//        System.out.println(Arrays.toString(mainFilteredAndSortedList.get(0)) + " : line #1, mainFilteredAndSortedList, size, after clean, findOneMatchOnStream");
+//        System.out.println(copySetOfMainWithOneMatch.size() + " : copySetOfMainWithOneMatch, size, after clean, findOneMatchOnStream");
+
+//        return copySetOfMainWithOneMatch;
         //        return listOfThumbs;
     }
 
@@ -279,109 +391,94 @@ public class Main {
 //
 //    }
 
-    private static void findAnotherMatchesOnStream(Set<long[]> copiesFromPreve) {
-        Set<long[]> mainCopyOfMethod = new LinkedHashSet<>(copiesFromPreve);
-        Set<long[]> everyCopiesWithDuplicate = new LinkedHashSet<>();
-        Set<long[]> copyEveryCopiesWithDuplicate = new LinkedHashSet<>();
-        Map<Integer, Set<long[]>> thumbWithOwnLines = new HashMap<>();
-//        Set<long[]> duplicate = new HashSet<>();
-        Set<long[]> nextSetLevel = new LinkedHashSet<>();
-        int finalSize = 1;
-//        Iterator iterator = listOfThumbs.iterator();
-
-
-        // TODO: 19.02.2023 работать с LinkedHashSet столбцов
-//        for (long[] thumb : listOfThumbs) {
-//        for (Set<Long> thumb : listOfThumbs) {
-////        while (iterator.hasNext()) {
-////            long[] longs = (long[]) iterator.next();
-////            Set<Long> clear = new HashSet<>();
-////            Set<Long> copies = new HashSet<>();
-//////            Set<Integer> copiesId = new HashSet<>();
-//////            Set<Integer> copiesIdTo1 = new HashSet<>();
+//    private static void findAnotherMatchesOnStream(Set<long[]> copiesFromPreve) {
+//        Set<long[]> nextSetLevel = new LinkedHashSet<>();
+//        int finalSize = 1;
+////        Iterator iterator = listOfThumbs.iterator();
+//
+//
+//        // TODO: 19.02.2023 работать с LinkedHashSet столбцов
+////        for (long[] thumb : listOfThumbs) {
+////        for (Set<Long> thumb : listOfThumbs) {
+//////        while (iterator.hasNext()) {
+//////            long[] longs = (long[]) iterator.next();
+//////            Set<Long> clear = new HashSet<>();
+//////            Set<Long> copies = new HashSet<>();
+////////            Set<Integer> copiesId = new HashSet<>();
+////////            Set<Integer> copiesIdTo1 = new HashSet<>();
+//////
+//////            for (long longs : thumb) {
+//////                if (longs != 0 && !clear.add(longs)) {
+//////                    copies.add(longs);
+//////                }
+//////            }
 ////
-////            for (long longs : thumb) {
-////                if (longs != 0 && !clear.add(longs)) {
-////                    copies.add(longs);
+//////            for (int i = 0; i < thumb.length; i++) {
+//////                if (thumb[i] != 0 && !clear.add(thumb[i])) {
+//////                    copies.add(thumb[i]);
+////////                    copiesId.add(i);
+//////                }
+//////            }
+////
+//////            if(copies.size() == 1)
+//////                continue;
+////            // получил set повторяющихся значений в столбце
+////
+////            // найти из предоставленной карты строки с повторяющимися значениями в i-столбце
+////            int finalSize1 = finalSize;
+////            // TODO: 19.02.2023 сделать проверку на входящий пустой set copies
+////            Set<long[]> set = mainCopyOfMethod.stream()
+////                    .filter(s -> Arrays.stream(s)
+////                            .skip(finalSize1 - 1)
+////                            .limit(1)
+////                            .anyMatch(thumb::contains))
+////                    .collect(Collectors.toSet());
+////
+////
+////            // TODO: 19.02.2023 перевести все на HashLinkedSet
+////            // TODO: 19.02.2023 подумать над frequency
+////            copyEveryCopiesWithDuplicate.addAll(everyCopiesWithDuplicate);
+//////            if (!set.isEmpty()) {
+////////                mainCopyOfMethod.clear();
+//////                mainCopyOfMethod.retainAll(set);
+//////            }
+////            everyCopiesWithDuplicate.addAll(set);
+////            copyEveryCopiesWithDuplicate.retainAll(set);
+////            thumbWithOwnLines.put(finalSize, set);
+////            // TODO: 19.02.2023 здесь добавлю уже дублированные, поэтому ухожу в цикл
+//////            nextSetLevel.addAll(copyEveryCopiesWithDuplicate);
+//////            mainCopyOfMethod.clear();
+//////            mainCopyOfMethod.addAll(nextSetLevel);
+////
+////            finalSize++;
+////        }
+//
+//
+////        Set<long[]> set = new HashSet<>();
+////        Set<long[]> set1 = thumbWithOwnLines.get(1);
+//
+////        for (Set<long[]> overLongs : setOfColums) {
+////            for (Set<long[]> longs : setOfColums) {
+////                Set<long[]> set = new HashSet<>(overLongs);
+////                set.retainAll(longs);
+////                if (!set.isEmpty()) {
+////                    continue;
 ////                }
-////            }
-//
-////            for (int i = 0; i < thumb.length; i++) {
-////                if (thumb[i] != 0 && !clear.add(thumb[i])) {
-////                    copies.add(thumb[i]);
-//////                    copiesId.add(i);
+////                if (!set.containsAll(longs)) {
+////                    nextSetLevel.addAll(set);
+////                } else {
+////                    copySetOfMainWithOneMatch.addAll(longs);
 ////                }
+////
 ////            }
+////        }
 //
-////            if(copies.size() == 1)
-////                continue;
-//            // получил set повторяющихся значений в столбце
-//
-//            // найти из предоставленной карты строки с повторяющимися значениями в i-столбце
-//            int finalSize1 = finalSize;
-//            // TODO: 19.02.2023 сделать проверку на входящий пустой set copies
-//            Set<long[]> set = mainCopyOfMethod.stream()
-//                    .filter(s -> Arrays.stream(s)
-//                            .skip(finalSize1 - 1)
-//                            .limit(1)
-//                            .anyMatch(thumb::contains))
-//                    .collect(Collectors.toSet());
-//
-//
-//            // TODO: 19.02.2023 перевести все на HashLinkedSet
-//            // TODO: 19.02.2023 подумать над frequency
-//            copyEveryCopiesWithDuplicate.addAll(everyCopiesWithDuplicate);
-////            if (!set.isEmpty()) {
-//////                mainCopyOfMethod.clear();
-////                mainCopyOfMethod.retainAll(set);
-////            }
-//            everyCopiesWithDuplicate.addAll(set);
-//            copyEveryCopiesWithDuplicate.retainAll(set);
-//            thumbWithOwnLines.put(finalSize, set);
-//            // TODO: 19.02.2023 здесь добавлю уже дублированные, поэтому ухожу в цикл
-////            nextSetLevel.addAll(copyEveryCopiesWithDuplicate);
-////            mainCopyOfMethod.clear();
-////            mainCopyOfMethod.addAll(nextSetLevel);
-//
-//            finalSize++;
-//        }
-
-
-//        Set<long[]> set = new HashSet<>();
-//        Set<long[]> set1 = thumbWithOwnLines.get(1);
-
-        for (Set<long[]> overLongs : listOfThumbs) {
-            for (Set<long[]> longs : listOfThumbs) {
-                Set<long[]> set = new HashSet<>(overLongs);
-                set.retainAll(longs);
-                if (!set.isEmpty()) {
-                    continue;
-                }
-                if (!set.containsAll(longs)) {
-                    nextSetLevel.addAll(set);
-                } else {
-                    copySetOfMainWithOneMatch.addAll(longs);
-                }
-
-            }
-        }
-
-        // TODO: 20.02.2023 найдены те самые 5 строчек
-        System.out.println(nextSetLevel.size() + " nextSetLevel size");
-    }
+////        // TODO: 20.02.2023 найдены те самые 5 строчек
+////        System.out.println(nextSetLevel.size() + " nextSetLevel size");
+//    }
 
     public static void print() {
-//        List<Integer> keys = new ArrayList<>(resultIdSet.keySet());
-//        int length = keys.size();
-//        for (int i = length - 1; i >= 0; i--) {
-//            System.out.println("Группа " + (length - i));
-//            Set<String[]> set = new HashSet<>(resultIdSet.get(keys.get(i)));
-//            for (String[] x : set) {
-//                System.out.println("Строка " + x);
-//            }
-//        }
-        for (int x : resultCountRepeatSet.keySet()) {
-            System.out.println(x);
-        }
+        for (Map.Entry<Integer, Set<long[]>> entry : mapOfDuplicateWithCount.entrySet())
+            System.out.println(entry.getKey() + " : " + entry.getValue().size());
     }
 }
