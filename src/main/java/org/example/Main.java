@@ -7,7 +7,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -23,10 +25,14 @@ public class Main {
     static volatile boolean check = true;
     static ConcurrentMap<Integer, long[]> mainFilteredAndSortedMap = new ConcurrentHashMap<>();
     static AtomicInteger numberOfLine = new AtomicInteger(0);
-    static Set<long[]> mainFilteredAndSortedSet = new LinkedHashSet<>(); // сортировка от большего к меньшему
+    static List<long[]> mainFilteredAndSortedList = new LinkedList<>(); // сортировка от большего к меньшему
     static Set<long[]> copySetOfMainWithOneMatch = new LinkedHashSet<>();
+    static Set<Long> setOfCopies = new LinkedHashSet<>();
+    static Set<Map<Long, Set<long[]>>> result = new LinkedHashSet<>();
+    static Map<Integer, Map<Long, Set<long[]>>> resultMap = new LinkedHashMap<>();
     static List<long[]> copyListOfMainWithoutOneMatch = new ArrayList<>();
     static LinkedList<long[]> mainFilteredAndSortedLinkedList = new LinkedList<>();
+    static Set<long[]> setOfEnvictOfColumns = new LinkedHashSet<>();
     //    static Set<Set<long[]>> setOfColums = new LinkedHashSet<>();
     static int maxAmountElementsOfLine = 0;
     static Map<Integer, Set<long[]>> mapOfDuplicateWithCount = new HashMap<>();
@@ -36,8 +42,8 @@ public class Main {
     static Map<Integer, Set<long[]>> resultCountRepeatSet = new HashMap<>();
 
     public static void main(String[] args) {
-        final String pathToFile = "/Users/teplo/Desktop/lng-4.txt";
-//        final String pathToFile = "/Users/teplo/Desktop/lng-4 2.txt";
+//        final String pathToFile = "/Users/teplo/Desktop/lng-4.txt";
+        final String pathToFile = "/Users/teplo/Desktop/lng-4 2.txt";
 //        final String pathToFile = "C://Users/Алексей/Desktop/lng.txt";
 //        final String pathToFile = "C://Users/Алексей/Desktop/lng-2.txt";
         final String regex = "^(\"\\d*\")(;\"\\d*\")*$";
@@ -50,11 +56,6 @@ public class Main {
         String[] arr1 = str1.split(";");
         String[] arr2 = str2.split(";");
 
-
-//        int[] arrayA = {-2, 1, 3, 5, 7, 9};
-//        int[] arrayB = {-1, 0, 1, 3, 5, 7, 10};
-//        int j = Arrays.mismatch(arrayA, 1, arrayA.length, arrayB, 2, arrayB.length);
-//        System.out.println(j);
 
         List<String> list1 = List.of("\"79448126993\"", "\"\"", "\"79448126993\"");
         List<String> list2 = List.of("\"79448126993\"", "\"\"", "\"79822872594\"");
@@ -86,7 +87,8 @@ public class Main {
         System.out.println("start to filtered");
         // FIXME: 15.02.2023
         // TODO: 17.02.2023 проверить лист и связанный лист
-        readFile(pathToFile, pattern);
+        Set<long[]> mainCopies = readFile(pathToFile, pattern);
+        findMaxAmount();
         // не повторяющийся (и отсортированный от большего к меньшему по кол-ву элементов) список
 //        System.out.println("end to filter, size = " + mainFilteredAndSortedSet.size());
         // FIXME: 15.02.2023
@@ -95,7 +97,7 @@ public class Main {
         // FIXME: 15.02.2023
 //        findMatches(mainFilteredAndSortedList);
 //        findMatchesOnMap(mainFilteredAndSortedMap);
-        findMatches(mainFilteredAndSortedSet, 1);
+        findMatches(mainCopies, 1);
         print();
 
         System.out.println("end to find matches");
@@ -123,8 +125,15 @@ public class Main {
         System.out.println("seconds of work = " + secondsOfWork);
     }
 
+    private static void findMaxAmount() {
+        for (long[] x : mainFilteredAndSortedList) {
+            if (maxAmountElementsOfLine <= x.length)
+                maxAmountElementsOfLine = x.length;
+        }
+    }
+
     // TODO: 15.02.2023 методы
-    public static void readFile(String pathToFile, Pattern pattern) {
+    public static Set<long[]> readFile(String pathToFile, Pattern pattern) {
         List<long[]> list = null;
         try (Stream<String> lines = Files.lines(Paths.get(pathToFile))) {
             list = lines.filter(s -> {
@@ -133,13 +142,12 @@ public class Main {
                     })
                     .filter(s -> (s.length() != 0))
                     .distinct()
-                    .sorted((s1, s2) -> new MyComparator().compare(s1, s2))
+//                    .sorted((s1, s2) -> new MyComparator().compare(s1, s2))
                     .map(s -> s.replace("\"\"", "0"))
                     .map(s -> s.replace("\"", ""))
                     .map(s -> Arrays.stream(s.split(";"))
                             .mapToLong(Long::parseLong)
                             .toArray())
-//                    .collect(Collectors.toMap(i -> numberOfLine.getAndIncrement(), s -> s));
                     .toList();
             System.out.println(list.size());
         } catch (Exception e) {
@@ -151,31 +159,25 @@ public class Main {
 //
 //        }
         try {
-//            mainFilteredAndSortedMap.putAll(map);
-//            System.out.println("size of map = " + mainFilteredAndSortedMap.size());
-            mainFilteredAndSortedSet.addAll(list);
+            mainFilteredAndSortedList.addAll(list);
+//            mainFilteredAndSortedSet.addAll(list);
         } catch (Exception e) {
             System.out.println(e.getMessage());
         }
 
-//        maxAmountElementsOfLine = mainFilteredAndSortedList.get(0).length;
-//        System.out.println("maxAmountElementsOfLine = " + maxAmountElementsOfLine);
-//        System.out.println("mainFilteredAndSortedList size of readFile = " + mainFilteredAndSortedList.size());
-//        System.out.println("line #1 of mainFilteredAndSortedList of readFile = " + Arrays.toString(mainFilteredAndSortedList.get(0)));
-
-//        System.out.println("line #1: " + Arrays.toString(mainFilteredAndSortedMap.get(0)));
-//        return 0;
+        return new LinkedHashSet<>(mainFilteredAndSortedList);
     }
 
     private static void findMatches(Set<long[]> copiesOfLines, int countOfDuplicate) {
         Set<Set<long[]>> columns = new LinkedHashSet<>(takeColumns(copiesOfLines));
+        print();
+        System.out.println(mainFilteredAndSortedList.size() + " mainList after cleanup and making columns");
+        System.out.println(setOfEnvictOfColumns.size() + " setOfEnvictOfColumns after search duplicates");
         Set<long[]> set = findOneMatchOnStream(columns, countOfDuplicate);
         if (!set.isEmpty()) {
             countOfDuplicate++;
             findMatches(set, countOfDuplicate);
         }
-//        findAnotherMatchesOnStream(mainFilteredAndSortedList);
-//        findAnotherMatchesOnStream(set);
     }
 
     private static Set<Set<long[]>> takeColumns(Set<long[]> copiesOfLines) {
@@ -185,11 +187,9 @@ public class Main {
 
             // взять столбец long и сделать массив
             int finalSize = size;
-            long[] thumb = copiesOfLines.stream()
-//                    .filter(longs -> longs.length >= finalSize)
+            long[] thumb = mainFilteredAndSortedList.stream()
                     .flatMapToLong(s -> LongStream.of(Arrays.stream(s)
                             .skip(finalSize - 1)
-//                            .filter(l -> l != 0)
                             .findFirst()
                             .orElse(0)))
                     .toArray();
@@ -198,63 +198,51 @@ public class Main {
             // найти совпадающие значения в столбце
             Set<Long> clear = new HashSet<>();
             Set<Long> copies = new HashSet<>();
-//            Set<Integer> copiesId = new HashSet<>();
-//            Set<Integer> copiesIdTo1 = new HashSet<>();
             for (int i = 0; i < thumb.length; i++) {
                 if (thumb[i] != 0 && !clear.add(thumb[i])) {
+                    setOfCopies.add(thumb[i]);
                     copies.add(thumb[i]);
-//                    copiesId.add(i);
                 }
             }
             // получил set повторяющихся значений в столбце
 
             // найти из предоставленной карты строки с повторяющимися значениями в i-столбце
-            Set<long[]> set = mainFilteredAndSortedSet.stream()
+            Set<long[]> set = mainFilteredAndSortedList.stream()
                     .filter(s -> Arrays.stream(s)
                             .skip(finalSize - 1)
                             .limit(1)
-//                            .findFirst()
                             .anyMatch(copies::contains))
-//                            .filter(l -> copies.contains(l))
-//                            .findFirst().isPresent())
                     .collect(Collectors.toSet());
+            // собран set из строк, где есть совпадения дубликата в i-столбце
 
-//            copySetOfMainWithOneMatch.addAll(set);
-            // TODO: 19.02.2023 добавить set, а не массив
+            Map<Long, Set<long[]>> prepareToResult = mainFilteredAndSortedList.stream()
+                    .filter(s -> Arrays.stream(s)
+                            .skip(finalSize - 1)
+                            .limit(1)
+                            .anyMatch(copies::contains))
+                    .collect(Collectors.groupingBy(
+                            s -> Arrays.stream(s)
+                                    .skip(finalSize - 1)
+                                    .limit(1)
+                                    .findFirst().orElse(0L),
+                            Collectors.toSet()
+                    ));
+            // собрана мапа : повтораящийся long -> строки с этим Long[] i-столбца
+
+            // добавить строки из предыдущего set
+            copySetOfMainWithOneMatch.addAll(set);
+
+            // вычисть главную карту из предыдущего set
+            mainFilteredAndSortedList.removeAll(set);
+            System.out.println(set + " i-set");
+
+            // добавить мапу в результирующий список
+            result.add(prepareToResult);
             setOfColumns.add(set);
-//            Collections.addAll(listOfThumbs, copies);
-            // получил set строк с повторяющимися значениями в i-столбце
-
-//            System.out.println("size:" + finalSize + " of test heap-to-remove = " + thumb.length);
-//            System.out.println("size:" + finalSize + " of clear-set = " + clear.size());
-//            System.out.println("size:" + finalSize + " of copies-set = " + copies.size());
-//            System.out.println("size:" + finalSize + " of copies-id-set = " + copiesId.size());
-//            System.out.println("size:" + finalSize + " of copy-set = " + copySetOfMainWithOneMatch.size());
-//            System.out.println("*****");
 
             size++;
         }
-
-//        searchNestCopies(listOfThumbs);
-
-
-//        System.out.println(mainFilteredAndSortedList.size() + " : mainFilteredAndSortedList, size, before clean, findOneMatchOnStream");
-//        System.out.println(Arrays.toString(mainFilteredAndSortedList.get(0)) + " : line #1, mainFilteredAndSortedList, size, before clean, findOneMatchOnStream");
-//        System.out.println(copySetOfMainWithOneMatch.size() + " : copySetOfMainWithOneMatch, size, before clean, findOneMatchOnStream");
-//        System.out.println(listOfThumbs.size() + "listOfThumbs");
-
-//        resultCountRepeatSet.put(1, new HashSet<>(copySetOfMainWithOneMatch));
-//        mainFilteredAndSortedList.retainAll(copySetOfMainWithOneMatch);
-//        copySetOfMainWithOneMatch.clear();
-
-
-//        System.out.println(resultCountRepeatSet.get(1).size() + " : resultCountRepeatSet, 1 repeat, size, after clean");
-//        System.out.println(mainFilteredAndSortedList.size() + " : mainFilteredAndSortedList, size, after clean, findOneMatchOnStream");
-//        System.out.println(Arrays.toString(mainFilteredAndSortedList.get(0)) + " : line #1, mainFilteredAndSortedList, size, after clean, findOneMatchOnStream");
-//        System.out.println(copySetOfMainWithOneMatch.size() + " : copySetOfMainWithOneMatch, size, after clean, findOneMatchOnStream");
-
         return setOfColumns;
-//        return null;
     }
 
     private static Set<long[]> findOneMatchOnStream(Set<Set<long[]>> columns, int countOfDuplicate) {
@@ -275,210 +263,33 @@ public class Main {
             }
         }
         mapOfDuplicateWithCount.put(countOfDuplicate, duplicate);
-//        findMatches(nextSetLevel, countOfDuplicate);
         return nextSetLevel;
-
-
-
-
-
-//        int size = 1;
-//        while (maxAmountElementsOfLine >= size) {
-//
-//            // взять столбец long и сделать массив
-//            int finalSize = size;
-////            long[] thumb = copiesOfLines.stream()
-//////                    .filter(longs -> longs.length >= finalSize)
-////                    .flatMapToLong(s -> LongStream.of(Arrays.stream(s)
-////                            .skip(finalSize - 1)
-//////                            .filter(l -> l != 0)
-////                            .findFirst()
-////                            .orElse(0)))
-////                    .toArray();
-////            // получил отдельный i-столбец
-////
-////            // найти совпадающие значения в столбце
-////            Set<Long> clear = new HashSet<>();
-////            Set<Long> copies = new HashSet<>();
-//////            Set<Integer> copiesId = new HashSet<>();
-//////            Set<Integer> copiesIdTo1 = new HashSet<>();
-////            for (int i = 0; i < thumb.length; i++) {
-////                if (thumb[i] != 0 && !clear.add(thumb[i])) {
-////                    copies.add(thumb[i]);
-//////                    copiesId.add(i);
-////                }
-////            }
-//            // получил set повторяющихся значений в столбце
-//
-//            // найти из предоставленной карты строки с повторяющимися значениями в i-столбце
-////            Set<long[]> set = copiesOfLines.stream()
-////                    .filter(s -> Arrays.stream(s)
-////                            .skip(finalSize - 1)
-////                            .limit(1)
-//////                            .findFirst()
-////                            .anyMatch(columns::contains))
-//////                            .filter(l -> copies.contains(l))
-//////                            .findFirst().isPresent())
-////                    .collect(Collectors.toSet());
-////
-////            copySetOfMainWithOneMatch.addAll(set);
-////
-////
-////            // TODO: 19.02.2023 добавить set, а не массив
-////            setOfColums.add(set);
-////            Collections.addAll(listOfThumbs, copies);
-//            // получил set строк с повторяющимися значениями в i-столбце
-//
-////            System.out.println("size:" + finalSize + " of test heap-to-remove = " + thumb.length);
-////            System.out.println("size:" + finalSize + " of clear-set = " + clear.size());
-////            System.out.println("size:" + finalSize + " of copies-set = " + copies.size());
-////            System.out.println("size:" + finalSize + " of copies-id-set = " + copiesId.size());
-////            System.out.println("size:" + finalSize + " of copy-set = " + copySetOfMainWithOneMatch.size());
-////            System.out.println("*****");
-//
-//            size++;
-//        }
-
-//        searchNestCopies(listOfThumbs);
-
-
-//        System.out.println(mainFilteredAndSortedList.size() + " : mainFilteredAndSortedList, size, before clean, findOneMatchOnStream");
-//        System.out.println(Arrays.toString(mainFilteredAndSortedList.get(0)) + " : line #1, mainFilteredAndSortedList, size, before clean, findOneMatchOnStream");
-//        System.out.println(copySetOfMainWithOneMatch.size() + " : copySetOfMainWithOneMatch, size, before clean, findOneMatchOnStream");
-//        System.out.println(listOfThumbs.size() + "listOfThumbs");
-
-//        resultCountRepeatSet.put(1, new HashSet<>(copySetOfMainWithOneMatch));
-//        mainFilteredAndSortedList.retainAll(copySetOfMainWithOneMatch);
-//        copySetOfMainWithOneMatch.clear();
-
-
-//        System.out.println(resultCountRepeatSet.get(1).size() + " : resultCountRepeatSet, 1 repeat, size, after clean");
-//        System.out.println(mainFilteredAndSortedList.size() + " : mainFilteredAndSortedList, size, after clean, findOneMatchOnStream");
-//        System.out.println(Arrays.toString(mainFilteredAndSortedList.get(0)) + " : line #1, mainFilteredAndSortedList, size, after clean, findOneMatchOnStream");
-//        System.out.println(copySetOfMainWithOneMatch.size() + " : copySetOfMainWithOneMatch, size, after clean, findOneMatchOnStream");
-
-//        return copySetOfMainWithOneMatch;
-        //        return listOfThumbs;
     }
 
-//    private static void searchNestCopies(Set<long[]> listOfThumbs) {
-//
-//        // найти совпадающие значения в столбце
-//        Set<Long> clear = new HashSet<>();
-//        Set<Long> copies = new HashSet<>();
-////            Set<Integer> copiesId = new HashSet<>();
-////            Set<Integer> copiesIdTo1 = new HashSet<>();
-//        for (int i = 0; i < thumb.length; i++) {
-//            if (!clear.add(thumb[i])) {
-//                copies.add(thumb[i]);
-////                    copiesId.add(i);
-//            }
-//        }
-//        // получил set повторяющихся значений в столбце
-//
-//        // найти из предоставленной карты строки с повторяющимися значениями в i-столбце
-//        Set<long[]> set = mainFilteredAndSortedList.stream()
-//                .filter(s -> Arrays.stream(s)
-//                        .skip(finalSize - 1)
-//                        .anyMatch(copies::contains))
-////                            .filter(l -> copies.contains(l))
-////                            .findFirst().isPresent())
-//                .collect(Collectors.toSet());
-//
-//        copySetOfMainWithOneMatch.addAll(set);
-//        Collections.addAll(listOfThumbs, thumb);
-//
-//
-//    }
-
-//    private static void findAnotherMatchesOnStream(Set<long[]> copiesFromPreve) {
-//        Set<long[]> nextSetLevel = new LinkedHashSet<>();
-//        int finalSize = 1;
-////        Iterator iterator = listOfThumbs.iterator();
-//
-//
-//        // TODO: 19.02.2023 работать с LinkedHashSet столбцов
-////        for (long[] thumb : listOfThumbs) {
-////        for (Set<Long> thumb : listOfThumbs) {
-//////        while (iterator.hasNext()) {
-//////            long[] longs = (long[]) iterator.next();
-//////            Set<Long> clear = new HashSet<>();
-//////            Set<Long> copies = new HashSet<>();
-////////            Set<Integer> copiesId = new HashSet<>();
-////////            Set<Integer> copiesIdTo1 = new HashSet<>();
-//////
-//////            for (long longs : thumb) {
-//////                if (longs != 0 && !clear.add(longs)) {
-//////                    copies.add(longs);
-//////                }
-//////            }
-////
-//////            for (int i = 0; i < thumb.length; i++) {
-//////                if (thumb[i] != 0 && !clear.add(thumb[i])) {
-//////                    copies.add(thumb[i]);
-////////                    copiesId.add(i);
-//////                }
-//////            }
-////
-//////            if(copies.size() == 1)
-//////                continue;
-////            // получил set повторяющихся значений в столбце
-////
-////            // найти из предоставленной карты строки с повторяющимися значениями в i-столбце
-////            int finalSize1 = finalSize;
-////            // TODO: 19.02.2023 сделать проверку на входящий пустой set copies
-////            Set<long[]> set = mainCopyOfMethod.stream()
-////                    .filter(s -> Arrays.stream(s)
-////                            .skip(finalSize1 - 1)
-////                            .limit(1)
-////                            .anyMatch(thumb::contains))
-////                    .collect(Collectors.toSet());
-////
-////
-////            // TODO: 19.02.2023 перевести все на HashLinkedSet
-////            // TODO: 19.02.2023 подумать над frequency
-////            copyEveryCopiesWithDuplicate.addAll(everyCopiesWithDuplicate);
-//////            if (!set.isEmpty()) {
-////////                mainCopyOfMethod.clear();
-//////                mainCopyOfMethod.retainAll(set);
-//////            }
-////            everyCopiesWithDuplicate.addAll(set);
-////            copyEveryCopiesWithDuplicate.retainAll(set);
-////            thumbWithOwnLines.put(finalSize, set);
-////            // TODO: 19.02.2023 здесь добавлю уже дублированные, поэтому ухожу в цикл
-//////            nextSetLevel.addAll(copyEveryCopiesWithDuplicate);
-//////            mainCopyOfMethod.clear();
-//////            mainCopyOfMethod.addAll(nextSetLevel);
-////
-////            finalSize++;
-////        }
-//
-//
-////        Set<long[]> set = new HashSet<>();
-////        Set<long[]> set1 = thumbWithOwnLines.get(1);
-//
-////        for (Set<long[]> overLongs : setOfColums) {
-////            for (Set<long[]> longs : setOfColums) {
-////                Set<long[]> set = new HashSet<>(overLongs);
-////                set.retainAll(longs);
-////                if (!set.isEmpty()) {
-////                    continue;
-////                }
-////                if (!set.containsAll(longs)) {
-////                    nextSetLevel.addAll(set);
-////                } else {
-////                    copySetOfMainWithOneMatch.addAll(longs);
-////                }
-////
-////            }
-////        }
-//
-////        // TODO: 20.02.2023 найдены те самые 5 строчек
-////        System.out.println(nextSetLevel.size() + " nextSetLevel size");
-//    }
-
     public static void print() {
-        for (Map.Entry<Integer, Set<long[]>> entry : mapOfDuplicateWithCount.entrySet())
-            System.out.println(entry.getKey() + " : " + entry.getValue().size());
+
+        // печать общего числа групп +
+        int quantityOfGroups = takeQuantityOfGroups();
+        System.out.println(quantityOfGroups + " - quantity Of Groups");
+
+        // печать "группа с ххх" и соответствующие строки
+        for (Map<Long, Set<long[]>> x : result) {
+//            System.out.println("группа + " x.);
+            for (Map.Entry<Long, Set<long[]>> longs : x.entrySet()) {
+                System.out.println("группа " + longs.getKey());
+                // печать набор строк из группы
+                for (long[] line : longs.getValue()) {
+                    System.out.println(Arrays.toString(line));
+                }
+            }
+        }
+    }
+
+    private static int takeQuantityOfGroups() {
+        int quantityOfGroups = 0;
+        for (Map<Long, Set<long[]>> x : result) {
+            quantityOfGroups += x.keySet().size();
+        }
+        return quantityOfGroups;
     }
 }
