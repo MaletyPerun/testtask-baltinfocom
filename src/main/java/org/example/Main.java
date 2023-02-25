@@ -1,6 +1,11 @@
 package org.example;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
@@ -23,27 +28,17 @@ public class Main {
     // кол-во после фильтра и/или сортировки: 998578 (MacOS, lng-4) 13/8 сек
 
     static volatile boolean check = true;
-    static ConcurrentMap<Integer, long[]> mainFilteredAndSortedMap = new ConcurrentHashMap<>();
-    static AtomicInteger numberOfLine = new AtomicInteger(0);
     static List<long[]> mainFilteredAndSortedList = new LinkedList<>(); // сортировка от большего к меньшему
     static Set<long[]> copySetOfMainWithOneMatch = new LinkedHashSet<>();
     static Set<Long> setOfCopies = new LinkedHashSet<>();
     static Set<Map<Long, Set<long[]>>> result = new LinkedHashSet<>();
-    static Map<Integer, Map<Long, Set<long[]>>> resultMap = new LinkedHashMap<>();
-    static List<long[]> copyListOfMainWithoutOneMatch = new ArrayList<>();
-    static LinkedList<long[]> mainFilteredAndSortedLinkedList = new LinkedList<>();
-    static Set<long[]> setOfEnvictOfColumns = new LinkedHashSet<>();
-    //    static Set<Set<long[]>> setOfColums = new LinkedHashSet<>();
     static int maxAmountElementsOfLine = 0;
     static Map<Integer, Set<long[]>> mapOfDuplicateWithCount = new HashMap<>();
-    static List<Integer> idToRemove = new ArrayList<>();
-    //    static List<Integer> sortedIntList = new ArrayList<>();
-    static List<List<Long>> sortedLongList = new ArrayList<>();
-    static Map<Integer, Set<long[]>> resultCountRepeatSet = new HashMap<>();
+    static String path = "/Users/teplo/Desktop/lng-4.txt";
 
     public static void main(String[] args) {
-//        final String pathToFile = "/Users/teplo/Desktop/lng-4.txt";
-        final String pathToFile = "/Users/teplo/Desktop/lng-4 2.txt";
+        final String pathToFile = "/Users/teplo/Desktop/lng-4.txt";
+//        final String pathToFile = "/Users/teplo/Desktop/lng-4 2.txt";
 //        final String pathToFile = "C://Users/Алексей/Desktop/lng.txt";
 //        final String pathToFile = "C://Users/Алексей/Desktop/lng-2.txt";
         final String regex = "^(\"\\d*\")(;\"\\d*\")*$";
@@ -90,7 +85,6 @@ public class Main {
         Set<long[]> mainCopies = readFile(pathToFile, pattern);
         findMaxAmount();
         // не повторяющийся (и отсортированный от большего к меньшему по кол-ву элементов) список
-//        System.out.println("end to filter, size = " + mainFilteredAndSortedSet.size());
         // FIXME: 15.02.2023
 //        printOrder(mainFilteredAndSortedList, 10);
         System.out.println("start to find matches");
@@ -98,27 +92,14 @@ public class Main {
 //        findMatches(mainFilteredAndSortedList);
 //        findMatchesOnMap(mainFilteredAndSortedMap);
         findMatches(mainCopies, 1);
-        print();
+        try {
+            print();
+        } catch (IOException e) {
+            System.out.println(e.getMessage());
+            System.out.println("ошибка записи в файл");
+        }
 
         System.out.println("end to find matches");
-//        findMatchesOnFirstElement(mainFilteredAndSortedList);
-
-
-//        strParseToInt((List<String[]>) mainFilteredAndSortedList);
-
-        // FIXME: 15.02.2023
-//        printOrderInt(sortedLongList, 10);
-
-//        findMatchesOnLong();
-//        filteredSet.
-
-//        log.info("start to find matches");
-//        System.out.println("start to find matches");
-//        findMatchesOnStr(filteredList);
-//        System.out.println("end to find matches");
-//        log.info("end to find matches");
-
-//        print();
 
         check = false;
         long secondsOfWork = ChronoUnit.SECONDS.between(startTime, LocalTime.now());
@@ -160,7 +141,6 @@ public class Main {
 //        }
         try {
             mainFilteredAndSortedList.addAll(list);
-//            mainFilteredAndSortedSet.addAll(list);
         } catch (Exception e) {
             System.out.println(e.getMessage());
         }
@@ -170,9 +150,6 @@ public class Main {
 
     private static void findMatches(Set<long[]> copiesOfLines, int countOfDuplicate) {
         Set<Set<long[]>> columns = new LinkedHashSet<>(takeColumns(copiesOfLines));
-        print();
-        System.out.println(mainFilteredAndSortedList.size() + " mainList after cleanup and making columns");
-        System.out.println(setOfEnvictOfColumns.size() + " setOfEnvictOfColumns after search duplicates");
         Set<long[]> set = findOneMatchOnStream(columns, countOfDuplicate);
         if (!set.isEmpty()) {
             countOfDuplicate++;
@@ -266,20 +243,26 @@ public class Main {
         return nextSetLevel;
     }
 
-    public static void print() {
+    public static void print() throws IOException {
 
-        // печать общего числа групп +
-        int quantityOfGroups = takeQuantityOfGroups();
-        System.out.println(quantityOfGroups + " - quantity Of Groups");
+        // create file/check exists
+        String newFileName = path.replace(".txt", "-result.txt");
+        Path outputPath = Path.of(newFileName);
+        if (!Files.exists(outputPath)) {
+            Files.createFile(outputPath);
+        }
 
-        // печать "группа с ххх" и соответствующие строки
-        for (Map<Long, Set<long[]>> x : result) {
-//            System.out.println("группа + " x.);
-            for (Map.Entry<Long, Set<long[]>> longs : x.entrySet()) {
-                System.out.println("группа " + longs.getKey());
-                // печать набор строк из группы
-                for (long[] line : longs.getValue()) {
-                    System.out.println(Arrays.toString(line));
+        // write in file
+        try (FileOutputStream fos = new FileOutputStream(outputPath.toFile());
+                PrintStream out = new PrintStream(fos)) {
+            out.println(takeQuantityOfGroups());
+            for (Map<Long, Set<long[]>> x : result) {
+                for (Map.Entry<Long, Set<long[]>> longs : x.entrySet()) {
+                    out.println(String.format("группа %d", longs.getKey()));
+                    // печать набор строк из группы
+                    for (long[] line : longs.getValue()) {
+                        out.println(Arrays.toString(line));
+                    }
                 }
             }
         }
