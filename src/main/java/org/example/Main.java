@@ -9,7 +9,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -24,30 +28,17 @@ public class Main {
 
     static volatile boolean check = true;
     static Set<Long[]> mainFilteredSet = new LinkedHashSet<>();
-    static Set<Long> setOfCopies = new LinkedHashSet<>();
     static Set<Map<Long, Set<Long[]>>> result = new LinkedHashSet<>();
     static int maxAmountElementsOfLine = 0;
     static String pathToFile = "";
+    static final String regex = "^(\"\\d*\")(;\"\\d*\")*$";
+    static final Pattern pattern = Pattern.compile(regex);
 
     public static void main(String[] args) {
 //        pathToFile = args[0];
-        pathToFile = "/Users/teplo/Desktop/lng-4.txt";
-        final String regex = "^(\"\\d*\")(;\"\\d*\")*$";
-        final Pattern pattern = Pattern.compile(regex);
-
-        String str1 = "\"79805535143\";\"79629844729\";\"79279047724\";\"\";\"79023442969\"";
-        String str2 = "\"79300855205\";\"79361449905\";\"79405798876\";\"79813087441\";\"79584895463\";\"79219383129\";\"79647376560\"";
-        String str3 = "\"\";\"79361449905\";\"79405798876\";\"79813087441\";\"79584895463\";\"79219383129\";\"79647376560\"";
-
-        String[] arr1 = str1.split(";");
-        String[] arr2 = str2.split(";");
-
-
-        List<String> list1 = List.of("\"79448126993\"", "\"\"", "\"79448126993\"");
-        List<String> list2 = List.of("\"79448126993\"", "\"\"", "\"79822872594\"");
-
-        String str4 = str3.replace("\"\"", "\"0\"");
-        String str5 = str4.replace("\"", "");
+//        pathToFile = "/Users/teplo/Desktop/lng-4.txt";
+        pathToFile = "C://Users/Алексей/Desktop/lng.txt";
+//        pathToFile = "C://Users/Алексей/Desktop/lng-2.txt";
 
         Runnable task = new Runnable() {
             int countTime = 0;
@@ -69,19 +60,18 @@ public class Main {
         Thread myThread = new Thread(task);
         myThread.start();
 
-
         System.out.println("начало чтения файла");
         Set<Long[]> copyOfMainSet = readFile(pathToFile, pattern);
         if (!copyOfMainSet.isEmpty()) {
             findMaxAmount();
-            findMatches(copyOfMainSet);
-            print();
+            Set<Map<Long, Set<Long[]>>> forTest = findMatches(copyOfMainSet, maxAmountElementsOfLine);
+            print(forTest);
         } else {
             System.out.println("файл пуст или неправильный формат данных");
         }
         check = false;
         long secondsOfWork = ChronoUnit.SECONDS.between(startTime, LocalTime.now());
-        System.out.printf("время работы: %d сек \n", secondsOfWork);
+        System.out.printf("файл прочитан, время работы: %d сек \n", secondsOfWork);
     }
 
     public static Set<Long[]> readFile(String pathToFile, Pattern pattern) {
@@ -91,7 +81,7 @@ public class Main {
                         Matcher matcher = pattern.matcher(s);
                         return matcher.matches();
                     })
-                    .filter(s -> (s.length() != 0))
+                    .filter(s -> (s.length() > 2))
                     .distinct()
                     .map(s -> s.replace("\"\"", "0"))
                     .map(s -> s.replace("\"", ""))
@@ -100,19 +90,16 @@ public class Main {
                             .toList()
                             .toArray(Long[]::new))
                     .collect(Collectors.toSet());
-            System.out.println(set.size());
         } catch (Exception e) {
             System.out.println(e.getMessage());
             System.out.println("ошибка чтения файла или неверный путь");
         }
 
-        try {
+        if (set != null && !set.isEmpty()) {
             mainFilteredSet.addAll(set);
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
         }
 
-        return new LinkedHashSet<>(set);
+        return new LinkedHashSet<>(mainFilteredSet);
     }
 
     private static void findMaxAmount() {
@@ -122,12 +109,13 @@ public class Main {
         }
     }
 
-    private static void findMatches(Set<Long[]> setWithDuplicates) {
+    public static Set<Map<Long, Set<Long[]>>> findMatches(Set<Long[]> copyOfMainSet, int maxElements) {
         int size = 1;
-        while (maxAmountElementsOfLine >= size) {
+        Set<Map<Long, Set<Long[]>>> setOfMatchesPerColumn = new LinkedHashSet<>();
+        while (maxElements >= size) {
 
             int finalSize = size;
-            long[] thumb = setWithDuplicates.stream()
+            long[] thumb = copyOfMainSet.stream()
                     .flatMapToLong(s -> LongStream.of(Arrays.stream(s)
                             .skip(finalSize - 1)
                             .findFirst()
@@ -138,19 +126,11 @@ public class Main {
             Set<Long> copies = new HashSet<>();
             for (long l : thumb) {
                 if (l != 0 && !clear.add(l)) {
-                    setOfCopies.add(l);
                     copies.add(l);
                 }
             }
 
-            Set<Long[]> set = setWithDuplicates.stream()
-                    .filter(s -> Arrays.stream(s)
-                            .skip(finalSize - 1)
-                            .limit(1)
-                            .anyMatch(copies::contains))
-                    .collect(Collectors.toSet());
-
-            Map<Long, Set<Long[]>> prepareToResult = setWithDuplicates.stream()
+            Map<Long, Set<Long[]>> mapWithMatches = copyOfMainSet.stream()
                     .filter(s -> Arrays.stream(s)
                             .skip(finalSize - 1)
                             .limit(1)
@@ -163,14 +143,16 @@ public class Main {
                             Collectors.toSet()
                     ));
 
-            setWithDuplicates.removeAll(set);
-            result.add(prepareToResult);
-
+            if (!mapWithMatches.isEmpty()) {
+                result.add(mapWithMatches);
+                setOfMatchesPerColumn.add(mapWithMatches);
+            }
             size++;
         }
+        return setOfMatchesPerColumn;
     }
 
-    public static void print() {
+    public static void print(Set<Map<Long, Set<Long[]>>> forTest) {
 
         String newFileName = pathToFile.replace(".txt", "-result.txt");
         Path outputPath = Path.of(newFileName);
@@ -184,11 +166,11 @@ public class Main {
         }
 
         try (FileOutputStream fos = new FileOutputStream(outputPath.toFile());
-                PrintStream out = new PrintStream(fos)) {
+             PrintStream out = new PrintStream(fos)) {
             out.println(takeQuantityOfGroups());
-            for (Map<Long, Set<Long[]>> x : result) {
+            for (Map<Long, Set<Long[]>> x : forTest) {
                 for (Map.Entry<Long, Set<Long[]>> longs : x.entrySet()) {
-                    out.println(String.format("группа %d", longs.getKey()));
+                    out.printf("группа %d\n", longs.getKey());
                     for (Long[] line : longs.getValue()) {
                         out.println(Arrays.toString(line));
                     }
