@@ -23,15 +23,15 @@ public class Main {
     // кол-во после фильтра и/или сортировки: 998578 (MacOS, lng-4) 13/8 сек
 
     static volatile boolean check = true;
-    static List<long[]> mainFilteredAndSortedList = new LinkedList<>();
-    static Set<long[]> copySetOfMainWithOneMatch = new LinkedHashSet<>();
+    static Set<Long[]> mainFilteredSet = new LinkedHashSet<>();
     static Set<Long> setOfCopies = new LinkedHashSet<>();
-    static Set<Map<Long, Set<long[]>>> result = new LinkedHashSet<>();
+    static Set<Map<Long, Set<Long[]>>> result = new LinkedHashSet<>();
     static int maxAmountElementsOfLine = 0;
     static String pathToFile = "";
 
     public static void main(String[] args) {
-        pathToFile = args[0];
+//        pathToFile = args[0];
+        pathToFile = "/Users/teplo/Desktop/lng-4.txt";
         final String regex = "^(\"\\d*\")(;\"\\d*\")*$";
         final Pattern pattern = Pattern.compile(regex);
 
@@ -71,24 +71,23 @@ public class Main {
 
 
         System.out.println("начало чтения файла");
-        readFile(pathToFile, pattern);
-        if (!mainFilteredAndSortedList.isEmpty()) {
+        Set<Long[]> copyOfMainSet = readFile(pathToFile, pattern);
+        if (!copyOfMainSet.isEmpty()) {
             findMaxAmount();
-            findMatches();
+            findMatches(copyOfMainSet);
             print();
         } else {
             System.out.println("файл пуст или неправильный формат данных");
         }
-
         check = false;
         long secondsOfWork = ChronoUnit.SECONDS.between(startTime, LocalTime.now());
         System.out.printf("время работы: %d сек \n", secondsOfWork);
     }
 
-    public static void readFile(String pathToFile, Pattern pattern) {
-        List<long[]> list = null;
+    public static Set<Long[]> readFile(String pathToFile, Pattern pattern) {
+        Set<Long[]> set = null;
         try (Stream<String> lines = Files.lines(Paths.get(pathToFile))) {
-            list = lines.filter(s -> {
+            set = lines.filter(s -> {
                         Matcher matcher = pattern.matcher(s);
                         return matcher.matches();
                     })
@@ -97,57 +96,61 @@ public class Main {
                     .map(s -> s.replace("\"\"", "0"))
                     .map(s -> s.replace("\"", ""))
                     .map(s -> Arrays.stream(s.split(";"))
-                            .mapToLong(Long::parseLong)
-                            .toArray())
-                    .toList();
-            System.out.println(list.size());
+                            .map(Long::valueOf)
+                            .toList()
+                            .toArray(Long[]::new))
+                    .collect(Collectors.toSet());
+            System.out.println(set.size());
         } catch (Exception e) {
             System.out.println(e.getMessage());
+            System.out.println("ошибка чтения файла или неверный путь");
         }
 
         try {
-            mainFilteredAndSortedList.addAll(list);
+            mainFilteredSet.addAll(set);
         } catch (Exception e) {
             System.out.println(e.getMessage());
         }
+
+        return new LinkedHashSet<>(set);
     }
 
     private static void findMaxAmount() {
-        for (long[] x : mainFilteredAndSortedList) {
+        for (Long[] x : mainFilteredSet) {
             if (maxAmountElementsOfLine <= x.length)
                 maxAmountElementsOfLine = x.length;
         }
     }
 
-    private static void findMatches() {
+    private static void findMatches(Set<Long[]> setWithDuplicates) {
         int size = 1;
         while (maxAmountElementsOfLine >= size) {
 
             int finalSize = size;
-            long[] thumb = mainFilteredAndSortedList.stream()
+            long[] thumb = setWithDuplicates.stream()
                     .flatMapToLong(s -> LongStream.of(Arrays.stream(s)
                             .skip(finalSize - 1)
                             .findFirst()
-                            .orElse(0)))
+                            .orElse(0L)))
                     .toArray();
 
             Set<Long> clear = new HashSet<>();
             Set<Long> copies = new HashSet<>();
-            for (int i = 0; i < thumb.length; i++) {
-                if (thumb[i] != 0 && !clear.add(thumb[i])) {
-                    setOfCopies.add(thumb[i]);
-                    copies.add(thumb[i]);
+            for (long l : thumb) {
+                if (l != 0 && !clear.add(l)) {
+                    setOfCopies.add(l);
+                    copies.add(l);
                 }
             }
 
-            Set<long[]> set = mainFilteredAndSortedList.stream()
+            Set<Long[]> set = setWithDuplicates.stream()
                     .filter(s -> Arrays.stream(s)
                             .skip(finalSize - 1)
                             .limit(1)
                             .anyMatch(copies::contains))
                     .collect(Collectors.toSet());
 
-            Map<Long, Set<long[]>> prepareToResult = mainFilteredAndSortedList.stream()
+            Map<Long, Set<Long[]>> prepareToResult = setWithDuplicates.stream()
                     .filter(s -> Arrays.stream(s)
                             .skip(finalSize - 1)
                             .limit(1)
@@ -160,8 +163,7 @@ public class Main {
                             Collectors.toSet()
                     ));
 
-            copySetOfMainWithOneMatch.addAll(set);
-            mainFilteredAndSortedList.removeAll(set);
+            setWithDuplicates.removeAll(set);
             result.add(prepareToResult);
 
             size++;
@@ -184,10 +186,10 @@ public class Main {
         try (FileOutputStream fos = new FileOutputStream(outputPath.toFile());
                 PrintStream out = new PrintStream(fos)) {
             out.println(takeQuantityOfGroups());
-            for (Map<Long, Set<long[]>> x : result) {
-                for (Map.Entry<Long, Set<long[]>> longs : x.entrySet()) {
+            for (Map<Long, Set<Long[]>> x : result) {
+                for (Map.Entry<Long, Set<Long[]>> longs : x.entrySet()) {
                     out.println(String.format("группа %d", longs.getKey()));
-                    for (long[] line : longs.getValue()) {
+                    for (Long[] line : longs.getValue()) {
                         out.println(Arrays.toString(line));
                     }
                 }
@@ -203,7 +205,7 @@ public class Main {
 
     private static int takeQuantityOfGroups() {
         int quantityOfGroups = 0;
-        for (Map<Long, Set<long[]>> x : result) {
+        for (Map<Long, Set<Long[]>> x : result) {
             quantityOfGroups += x.keySet().size();
         }
         return quantityOfGroups;
