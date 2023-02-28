@@ -36,10 +36,8 @@ public class Main {
 
     public static void main(String[] args) {
         pathToFile = args[0];
-
         Runnable task = new Runnable() {
             int countTime = 0;
-
             public void run() {
                 while (check) {
                     try {
@@ -149,7 +147,7 @@ public class Main {
         return setOfMatchesPerColumn;
     }
 
-    public static void print(Set<Map<Long, Set<Long[]>>> forTest) {
+    public static void print(Set<Map<Long, Set<Long[]>>> setOfDuplicatesInMaps) {
 
         String newFileName = pathToFile.replace(".txt", "-result.txt");
         Path outputPath = Path.of(newFileName);
@@ -165,14 +163,13 @@ public class Main {
         try (FileOutputStream fos = new FileOutputStream(outputPath.toFile());
              PrintStream out = new PrintStream(fos)) {
             out.println(takeQuantityOfGroups());
-            for (Map<Long, Set<Long[]>> x : forTest) {
-                for (Map.Entry<Long, Set<Long[]>> longs : x.entrySet()) {
+            setOfDuplicatesInMaps.forEach(m -> {
+                for (Map.Entry<Long, Set<Long[]>> longs : m.entrySet()) {
                     out.printf("группа %d\n", longs.getKey());
-                    for (Long[] line : longs.getValue()) {
-                        out.println(Arrays.toString(line));
-                    }
+                    longs.getValue().forEach(s -> out.println(Arrays.toString(s)));
                 }
-            }
+            });
+
         } catch (FileNotFoundException e) {
             System.out.println(e.getMessage());
             System.out.println("файл не найден");
