@@ -35,10 +35,7 @@ public class Main {
     static final Pattern pattern = Pattern.compile(regex);
 
     public static void main(String[] args) {
-//        pathToFile = args[0];
-//        pathToFile = "/Users/teplo/Desktop/lng-4.txt";
-        pathToFile = "C://Users/Алексей/Desktop/lng.txt";
-//        pathToFile = "C://Users/Алексей/Desktop/lng-2.txt";
+        pathToFile = args[0];
 
         Runnable task = new Runnable() {
             int countTime = 0;
